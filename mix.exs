@@ -11,11 +11,15 @@ defmodule Coil.Mixfile do
   end
 
   def application do
-    [applications: [:logger],
-     mod: {Coil, []}]
+    [applications: [:logger,
+                    :plug,
+                    :poison,
+                    :cowboy]]
   end
 
   defp deps do
-    []
+    [{:plug, "~> 1.2.0-rc"},
+     {:poison, "~> 2.2"},
+     {:cowboy, "~> 1.0"}]
   end
 end
