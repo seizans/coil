@@ -6,12 +6,20 @@ defmodule Coil.Handler do
     header_name = "x-coil"
     case get_req_header(conn, header_name) do
       [header_value] ->
-        IO.inspect header_value
-        conn
-        |> send_resp(200, "dispatch")
+        case Regex.run(~r/^([a-zA-Z]+)_(\d{8}).([a-zA-Z]+)$/, header_value, [capture: :all_but_first]) do
+          [service, version, operation] ->
+            IO.inspect service
+            IO.inspect version
+            IO.inspect operation
+            conn
+            |> send_resp(200, "dispatch")
+          _ ->
+            conn
+            |> send_resp(400, "Invalid header value")
+        end
       [] ->
         conn
-        |> send_resp(400, "dispatch")
+        |> send_resp(400, "No header")
     end
   end
 end
