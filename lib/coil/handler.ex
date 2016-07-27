@@ -2,6 +2,8 @@ defmodule Coil.Handler do
   import Plug.Conn
 
   def dispatch(conn, params) do
+    IO.inspect conn
+    IO.inspect conn.private
     IO.inspect params
     header_name = "x-coil"
     case get_req_header(conn, header_name) do
