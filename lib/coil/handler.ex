@@ -11,7 +11,7 @@ defmodule Coil.Handler do
     json_decoder: Poison
   plug :dispatch
 
-  def dispatch(conn, opts) do
+  def dispatch(%Plug.Conn{request_path: "/"} = conn, opts) do
     IO.inspect opts
     IO.inspect conn
     IO.inspect conn.private
@@ -33,6 +33,12 @@ defmodule Coil.Handler do
         conn
         |> send_resp(400, "No header")
     end
+  end
+  def dispatch(conn, opts) do
+    IO.inspect opts
+    IO.inspect conn
+    conn
+    |> send_resp(400, "Request path must be '/'")
   end
 
   defp handle_errors(conn, %{kind: :error, reason: %Plug.Parsers.UnsupportedMediaTypeError{media_type: media_type}}) do
