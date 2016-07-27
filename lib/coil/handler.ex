@@ -1,10 +1,20 @@
 defmodule Coil.Handler do
-  import Plug.Conn
+  use Plug.Builder
+  use Plug.ErrorHandler
 
-  def dispatch(conn, params) do
+  require Logger
+
+  plug Plug.Logger
+  plug Plug.Parsers,
+    parsers: [:json],
+    pass: ["application/json"],
+    json_decoder: Poison
+  plug :dispatch
+
+  def dispatch(conn, opts) do
+    IO.inspect opts
     IO.inspect conn
     IO.inspect conn.private
-    IO.inspect params
     header_name = "x-coil"
     case get_req_header(conn, header_name) do
       [header_value] ->
@@ -23,5 +33,23 @@ defmodule Coil.Handler do
         conn
         |> send_resp(400, "No header")
     end
+  end
+
+  defp handle_errors(conn, %{kind: :error, reason: %Plug.Parsers.UnsupportedMediaTypeError{media_type: media_type}}) do
+    Logger.info("#{media_type} is unsupported media type")
+    conn
+    |> json(%{error: "#{media_type} is unsupported media type"})
+  end
+  defp handle_errors(conn, %{kind: _kind, reason: _reason, stack: _stack} = params) do
+    Logger.info(params)
+    conn
+    |> json(%{error: "Something went wrong"})
+  end
+
+  @spec json(Plug.Conn.t, map) :: Plug.Conn.t
+  def json(conn, data) do
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(conn.status || 200, Poison.encode_to_iodata!(data))
   end
 end
