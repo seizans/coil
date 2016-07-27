@@ -11,6 +11,12 @@ defmodule Coil.Handler do
     json_decoder: Poison
   plug :dispatch
 
+  def call(conn, opts) do
+    IO.inspect opts
+    super(conn, opts) # calls Plug.Logger and Plug.Head etc...
+    # assign(conn, :called_all_plugs, true)
+  end
+
   def dispatch(%Plug.Conn{request_path: "/"} = conn, opts) do
     IO.inspect opts
     IO.inspect conn
