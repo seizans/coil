@@ -53,8 +53,9 @@ defmodule Coil.Handler do
     conn
     |> json(%{error: "#{media_type} is unsupported media type"})
   end
-  defp handle_errors(conn, %{kind: _kind, reason: _reason, stack: _stack} = params) do
-    Logger.info(params)
+  defp handle_errors(conn, %{kind: _kind, reason: reason, stack: _stack} = params) do
+    Exception.message(reason)
+    |> Logger.error()
     conn
     |> json(%{error: "Something went wrong"})
   end
