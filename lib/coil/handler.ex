@@ -1,24 +1,26 @@
 defmodule Coil.Handler do
-  use Plug.Builder
   use Plug.ErrorHandler
+  import Plug.Conn
 
   require Logger
 
-  plug Plug.Logger
-  plug Plug.Parsers,
-    parsers: [:json],
-    pass: ["application/json"],
-    json_decoder: Poison
-  plug :dispatch
+  def init(opts), do: opts
 
-  def call(conn, opts) do
-    IO.inspect opts
-    super(conn, opts) # calls Plug.Logger and Plug.Head etc...
-    # assign(conn, :called_all_plugs, true)
+  def call(conn, %{coil_header_name: coil_header_name} = _opts) do
+    conn
+    |> call_plug(Plug.Logger, [])
+    |> call_plug(Plug.Parsers, parsers: [:json],
+                               pass: ["application/json"],
+                               json_decoder: Poison)
+    |> handle(coil_header_name)
   end
 
-  def dispatch(%Plug.Conn{request_path: "/"} = conn, opts) do
-    IO.inspect opts
+  defp call_plug(conn, plug, opts) do
+    plug.call(conn, plug.init(opts))
+  end
+
+  def handle(%Plug.Conn{request_path: "/"} = conn, coil_header_name) do
+    IO.inspect coil_header_name
     IO.inspect conn
     IO.inspect conn.private
     header_name = "x-coil"
@@ -40,8 +42,7 @@ defmodule Coil.Handler do
         |> send_resp(400, "No header")
     end
   end
-  def dispatch(conn, opts) do
-    IO.inspect opts
+  def dispatch(conn, _coil_header_name) do
     IO.inspect conn
     conn
     |> send_resp(400, "Request path must be '/'")
