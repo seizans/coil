@@ -6,33 +6,45 @@ defmodule Coil.Handler do
 
   def init(opts), do: opts
 
-  def call(conn, %{coil_header_name: coil_header_name} = _opts) do
+  def call(%Plug.Conn{request_path: "/"} = conn, %{coil_header_name: coil_header_name,
+                                                   service_name: service_name,
+                                                   dispatch_conf: dispatch_conf} = _opts) do
     conn
     |> call_plug(Plug.Logger, [])
     |> call_plug(Plug.Parsers, parsers: [:json],
                                pass: ["application/json"],
                                json_decoder: Poison)
-    |> handle(coil_header_name)
+    |> handle(service_name, coil_header_name, dispatch_conf)
+  end
+  def call(conn, _opts) do
+    conn
+    |> send_resp(400, "Request path must be '/'")
   end
 
   defp call_plug(conn, plug, opts) do
     plug.call(conn, plug.init(opts))
   end
 
-  def handle(%Plug.Conn{request_path: "/"} = conn, coil_header_name) do
-    IO.inspect coil_header_name
-    IO.inspect conn
-    IO.inspect conn.private
-    header_name = "x-coil"
-    case get_req_header(conn, header_name) do
+  def handle(conn, service_name, coil_header_name, dispatch_conf) do
+    case get_req_header(conn, coil_header_name) do
       [header_value] ->
-        case Regex.run(~r/^([a-zA-Z]+)_(\d{8}).([a-zA-Z]+)$/, header_value, [capture: :all_but_first]) do
-          [service, version, operation] ->
-            IO.inspect service
-            IO.inspect version
-            IO.inspect operation
-            conn
-            |> send_resp(200, "dispatch")
+        case Regex.run(~r/^([a-zA-Z]+).([a-zA-Z]+)$/, header_value, [capture: :all_but_first]) do
+          [^service_name, operation] ->
+            case Map.get(dispatch_conf, operation) do
+              nil ->
+                conn
+                |> send_resp(400, "Invalid operation name")
+              module ->
+                # TODO(seizans): conn.params を json_schema で validate する
+                fun = operation
+                      |> Macro.underscore()
+                      |> String.to_atom()
+                IO.inspect conn
+                IO.inspect conn.params
+                # TODO(seizans): 引数を必要なものに限定し、返り値も限定して、conn はこちらのみで使う
+                apply(module, fun, [conn])
+                |> send_resp(200, "dispatched")
+            end
           _ ->
             conn
             |> send_resp(400, "Invalid header value")
@@ -42,14 +54,8 @@ defmodule Coil.Handler do
         |> send_resp(400, "No header")
     end
   end
-  def dispatch(conn, _coil_header_name) do
-    IO.inspect conn
-    conn
-    |> send_resp(400, "Request path must be '/'")
-  end
 
   defp handle_errors(conn, %{kind: :error, reason: %Plug.Parsers.UnsupportedMediaTypeError{media_type: media_type}}) do
-    Logger.info("#{media_type} is unsupported media type")
     conn
     |> json(%{error: "#{media_type} is unsupported media type"})
   end
