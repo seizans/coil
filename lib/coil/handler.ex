@@ -6,8 +6,8 @@ defmodule Coil.Handler do
 
   def init(opts), do: opts
 
-  def call(%Plug.Conn{request_path: "/"} = conn, %{coil_header_name: coil_header_name,
-                                                   service_name: service_name,
+  def call(%Plug.Conn{request_path: "/"} = conn, %{service_name: service_name,
+                                                   coil_header_name: coil_header_name,
                                                    dispatch_conf: dispatch_conf} = _opts) do
     conn
     |> call_plug(Plug.Logger, [])
@@ -59,7 +59,7 @@ defmodule Coil.Handler do
     conn
     |> json(%{error: "#{media_type} is unsupported media type"})
   end
-  defp handle_errors(conn, %{kind: _kind, reason: reason, stack: _stack} = params) do
+  defp handle_errors(conn, %{kind: _kind, reason: reason, stack: _stack} = _params) do
     Exception.message(reason)
     |> Logger.error()
     conn
