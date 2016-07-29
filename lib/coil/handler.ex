@@ -1,4 +1,5 @@
 defmodule Coil.Handler do
+  @behaviour Plug
   use Plug.ErrorHandler
   import Plug.Conn
 
@@ -35,15 +36,21 @@ defmodule Coil.Handler do
                 conn
                 |> send_resp(400, "Invalid operation name")
               module ->
-                # TODO(seizans): conn.params を json_schema で validate する
-                fun = operation
-                      |> Macro.underscore()
-                      |> String.to_atom()
-                IO.inspect conn
-                IO.inspect conn.params
-                # TODO(seizans): 引数を必要なものに限定し、返り値も限定して、conn はこちらのみで使う
-                apply(module, fun, [conn])
-                |> send_resp(200, "dispatched")
+                case Coil.JsonSchema.validate(service_name, operation, conn.params) do
+                  :ok ->
+                    fun = operation
+                          |> Macro.underscore()
+                          |> String.to_atom()
+                    # TODO(seizans): 引数を必要なものに限定し、返り値も限定して、conn はこちらのみで使う
+                    apply(module, fun, [conn])
+                    |> send_resp(200, "dispatched")
+                  {:error, reasons} when is_list(reasons) ->
+                    # TODO(seizans): なんとかする
+                    message = %{reason: to_string(Enum.map(reasons, &Tuple.to_list(&1)))}
+                              |> Poison.encode!()
+                    conn
+                    |> send_resp(400, message)
+                end
             end
           _ ->
             conn

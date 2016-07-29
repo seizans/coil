@@ -20,6 +20,7 @@ defmodule Coil.Mixfile do
   defp deps do
     [{:plug, "~> 1.2.0-rc"},
      {:poison, "~> 2.2"},
+     {:ex_json_schema, ">= 0.5.1"},
      {:cowboy, "~> 1.0"}]
   end
 end
