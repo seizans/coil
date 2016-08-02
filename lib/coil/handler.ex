@@ -11,28 +11,33 @@ defmodule Coil.Handler do
     service_name = Keyword.fetch!(opts, :service_name)
     coil_header_name = Keyword.fetch!(opts, :coil_header_name)
     dispatch_conf = Keyword.fetch!(opts, :dispatch_conf)
-    # TODO(seizans): メイン処理の前と後に plug を追加できるようにする
+    middlewares = Keyword.get(opts, :middlewares, [])
+    onresponse = Keyword.get(opts, :onresponse, [])
+
     conn
     |> call_plug(Plug.Logger)
     |> call_plug(Plug.Parsers, parsers: [:json],
                                pass: ["application/json"],
                                json_decoder: Poison)
+    |> call_plugs(middlewares)
     |> handle(service_name, coil_header_name, dispatch_conf)
+    |> call_plugs(onresponse)
   end
   def call(conn, _opts) do
     conn
-    |> send_resp(400, "Request path must be '/'")
+    |> put_status(400)
+    |> json(%{error: "Request path must be '/'"})
   end
 
   defp call_plug(conn, plug, opts \\ []) do
     plug.call(conn, plug.init(opts))
   end
 
-  def call_plugs(conn, plugs, opts \\ []) do
-    Enum.reduce(plugs, conn, fn(plug, conn) -> call_plug(conn, plug, opts) end)
+  def call_plugs(conn, plugs) do
+    Enum.reduce(plugs, conn, fn(plug, conn) -> call_plug(conn, plug) end)
   end
 
-  def handle(conn, service_name, coil_header_name, dispatch_conf) do
+  defp handle(conn, service_name, coil_header_name, dispatch_conf) do
     case get_req_header(conn, coil_header_name) do
       [header_value] ->
         case Regex.run(~r/^([a-zA-Z]+).([a-zA-Z]+)$/, header_value, [capture: :all_but_first]) do
