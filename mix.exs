@@ -11,7 +11,8 @@ defmodule Coil.Mixfile do
   end
 
   def application do
-    [applications: [:logger,
+    [mod: {Coil, []},
+     applications: [:logger,
                     :plug,
                     :poison,
                     :cowboy]]

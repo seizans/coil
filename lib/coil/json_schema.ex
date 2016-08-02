@@ -1,13 +1,15 @@
 defmodule Coil.JsonSchema do
   @moduledoc """
-  start_link 時に priv/json_schema/ 以下の .json ファイルからスキーマを ets に読み込む。
+  load_schemas で priv/json_schema/ 以下の .json ファイルからスキーマを ets に読み込む。
   """
 
-  # TODO(seizans): service 複数にした場合の名前をどうするか考える
   @table_name :coil_json_schema_ets
 
-  def start(app_name, service_name, dispatch_conf) do
+  def start() do
     :ets.new(@table_name, [:set, :public, :named_table])
+  end
+
+  def load_schemas(app_name, service_name, dispatch_conf) do
     service_name_underscore = Macro.underscore(service_name)
     dir = Application.app_dir(app_name, Path.join("priv/json_schema", service_name_underscore))
     for {operation, _module} <- dispatch_conf do
