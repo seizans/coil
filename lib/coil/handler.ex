@@ -28,6 +28,10 @@ defmodule Coil.Handler do
     plug.call(conn, plug.init(opts))
   end
 
+  def call_plugs(conn, plugs, opts \\ []) do
+    Enum.reduce(plugs, conn, fn(plug, conn) -> call_plug(conn, plug, opts) end)
+  end
+
   def handle(conn, service_name, coil_header_name, dispatch_conf) do
     case get_req_header(conn, coil_header_name) do
       [header_value] ->
@@ -36,16 +40,26 @@ defmodule Coil.Handler do
             case Map.get(dispatch_conf, operation) do
               nil ->
                 conn
-                |> send_resp(400, "Invalid operation name")
+                |> put_status(400)
+                |> json(%{error: "Invalid operation name"})
               module ->
                 case Coil.JsonSchema.validate(service_name, operation, conn.params) do
                   :ok ->
                     fun = operation
                           |> Macro.underscore()
                           |> String.to_atom()
-                    # TODO(seizans): 引数を必要なものに限定し、返り値も限定して、conn はこちらのみで使う
-                    apply(module, fun, [conn])
-                    |> send_resp(200, "dispatched")
+                    case apply(module, fun, [conn.params, conn.private]) do
+                      :ok ->
+                        conn
+                        |> send_resp(200, "")
+                      {:ok, data} ->
+                        conn
+                        |> json(data)
+                      {:error, reason} ->
+                        conn
+                        |> put_status(400)
+                        |> json(%{error: reason})
+                    end
                   {:error, reasons} when is_list(reasons) ->
                     # TODO(seizans): なんとかする
                     message = %{reason: to_string(Enum.map(reasons, &Tuple.to_list(&1)))}
@@ -56,11 +70,13 @@ defmodule Coil.Handler do
             end
           _ ->
             conn
-            |> send_resp(400, "Invalid header value")
+            |> put_status(400)
+            |> json(%{error: "Invalid header value"})
         end
       [] ->
         conn
-        |> send_resp(400, "No header")
+        |> put_status(400)
+        |> json(%{error: "No header"})
     end
   end
 
@@ -76,7 +92,7 @@ defmodule Coil.Handler do
   end
 
   @spec json(Plug.Conn.t, map) :: Plug.Conn.t
-  def json(conn, data) do
+  defp json(conn, data) do
     conn
     |> put_resp_content_type("application/json")
     |> send_resp(conn.status || 200, Poison.encode_to_iodata!(data))
