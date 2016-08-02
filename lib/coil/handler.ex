@@ -7,11 +7,13 @@ defmodule Coil.Handler do
 
   def init(opts), do: opts
 
-  def call(%Plug.Conn{request_path: "/"} = conn, %{service_name: service_name,
-                                                   coil_header_name: coil_header_name,
-                                                   dispatch_conf: dispatch_conf} = _opts) do
+  def call(%Plug.Conn{request_path: "/"} = conn, opts) do
+    service_name = Keyword.fetch!(opts, :service_name)
+    coil_header_name = Keyword.fetch!(opts, :coil_header_name)
+    dispatch_conf = Keyword.fetch!(opts, :dispatch_conf)
+    # TODO(seizans): メイン処理の前と後に plug を追加できるようにする
     conn
-    |> call_plug(Plug.Logger, [])
+    |> call_plug(Plug.Logger)
     |> call_plug(Plug.Parsers, parsers: [:json],
                                pass: ["application/json"],
                                json_decoder: Poison)
@@ -22,7 +24,7 @@ defmodule Coil.Handler do
     |> send_resp(400, "Request path must be '/'")
   end
 
-  defp call_plug(conn, plug, opts) do
+  defp call_plug(conn, plug, opts \\ []) do
     plug.call(conn, plug.init(opts))
   end
 
