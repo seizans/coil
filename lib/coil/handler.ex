@@ -1,51 +1,20 @@
 defmodule Coil.Handler do
-  @behaviour Plug
+  use Plug.Builder
   use Plug.ErrorHandler
-  import Plug.Conn
 
   require Logger
 
   # TODO(seizans): header name を設定できるようにする
   @coil_header_name "x-coil-target"
 
-  def init(opts), do: opts
+  plug Plug.Logger
+  plug Plug.Parsers,
+    parsers: [:json],
+    pass: ["application/json"],
+    json_decoder: Poison
+  plug :handle
 
-  def call(%Plug.Conn{request_path: "/"} = conn, opts) do
-    middlewares = Keyword.get(opts, :middlewares, [])
-    onresponse = Keyword.get(opts, :onresponse, [])
-
-    conn
-    |> call_plug(Plug.Logger)
-    |> call_plug(Plug.Parsers, parsers: [:json],
-                               pass: ["application/json"],
-                               json_decoder: Poison)
-    |> call_plugs(middlewares)
-    |> handle()
-    |> call_plugs(onresponse)
-    |> send_resp()
-  end
-  def call(conn, _opts) do
-    conn
-    |> put_status(400)
-    |> json(%{error: "Request path must be '/'"})
-  end
-
-  defp call_plug(conn, plug, opts \\ []) do
-    if conn.halted do
-      conn
-    else
-      plug.call(conn, plug.init(opts))
-    end
-  end
-
-  def call_plugs(conn, plugs) do
-    Enum.reduce(plugs, conn, fn(plug, conn) -> call_plug(conn, plug) end)
-  end
-
-  defp handle(%Plug.Conn{halted: true} = conn) do
-    conn
-  end
-  defp handle(conn) do
+  defp handle(%Plug.Conn{request_path: "/"} = conn, _opts) do
     case get_req_header(conn, @coil_header_name) do
       [header_value] ->
         case Regex.run(~r/^([a-zA-Z]+).([a-zA-Z]+)$/, header_value, [capture: :all_but_first]) do
@@ -91,6 +60,11 @@ defmodule Coil.Handler do
         |> put_status(400)
         |> json(%{error: "No header"})
     end
+  end
+  defp handle(conn, _opts) do
+    conn
+    |> put_status(400)
+    |> json(%{error: "Request path must be '/'"})
   end
 
   defp handle_errors(conn, %{kind: :error, reason: %Plug.Parsers.UnsupportedMediaTypeError{media_type: media_type}}) do
