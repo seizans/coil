@@ -1,9 +1,10 @@
 defmodule Sand.User1 do
-  def get_user(conn) do
-    conn
+  def get_user(_params, _private) do
+    {:ok, %{spam: :ham}}
   end
 
-  def create_user(conn) do
+  def create_user(_params, _private) do
+    {:error, "FUGAhoge"}
   end
 
 end
