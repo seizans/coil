@@ -22,6 +22,7 @@ defmodule Coil.Handler do
     |> call_plugs(middlewares)
     |> handle(service_name, coil_header_name, dispatch_conf)
     |> call_plugs(onresponse)
+    |> send_resp()
   end
   def call(conn, _opts) do
     conn
@@ -30,13 +31,20 @@ defmodule Coil.Handler do
   end
 
   defp call_plug(conn, plug, opts \\ []) do
-    plug.call(conn, plug.init(opts))
+    if conn.halted do
+      conn
+    else
+      plug.call(conn, plug.init(opts))
+    end
   end
 
   def call_plugs(conn, plugs) do
     Enum.reduce(plugs, conn, fn(plug, conn) -> call_plug(conn, plug) end)
   end
 
+  defp handle(%Plug.Conn{halted: true} = conn, _service_name, _coil_header_name, _dispatch_conf) do
+    conn
+  end
   defp handle(conn, service_name, coil_header_name, dispatch_conf) do
     case get_req_header(conn, coil_header_name) do
       [header_value] ->
@@ -56,7 +64,7 @@ defmodule Coil.Handler do
                     case apply(module, fun, [conn.params, conn.private]) do
                       :ok ->
                         conn
-                        |> send_resp(200, "")
+                        |> resp(200, "")
                       {:ok, data} ->
                         conn
                         |> json(data)
@@ -70,7 +78,7 @@ defmodule Coil.Handler do
                     message = %{reason: to_string(Enum.map(reasons, &Tuple.to_list(&1)))}
                               |> Poison.encode!()
                     conn
-                    |> send_resp(400, message)
+                    |> resp(400, message)
                 end
             end
           _ ->
@@ -100,6 +108,6 @@ defmodule Coil.Handler do
   defp json(conn, data) do
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(conn.status || 200, Poison.encode_to_iodata!(data))
+    |> resp(conn.status || 200, Poison.encode_to_iodata!(data))
   end
 end
