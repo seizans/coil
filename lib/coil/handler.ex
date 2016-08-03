@@ -5,10 +5,12 @@ defmodule Coil.Handler do
 
   require Logger
 
+  # TODO(seizans): header name を設定できるようにする
+  @coil_header_name "x-coil-target"
+
   def init(opts), do: opts
 
   def call(%Plug.Conn{request_path: "/"} = conn, opts) do
-    coil_header_name = Keyword.fetch!(opts, :coil_header_name)
     middlewares = Keyword.get(opts, :middlewares, [])
     onresponse = Keyword.get(opts, :onresponse, [])
 
@@ -18,7 +20,7 @@ defmodule Coil.Handler do
                                pass: ["application/json"],
                                json_decoder: Poison)
     |> call_plugs(middlewares)
-    |> handle(coil_header_name)
+    |> handle()
     |> call_plugs(onresponse)
     |> send_resp()
   end
@@ -40,11 +42,11 @@ defmodule Coil.Handler do
     Enum.reduce(plugs, conn, fn(plug, conn) -> call_plug(conn, plug) end)
   end
 
-  defp handle(%Plug.Conn{halted: true} = conn, _coil_header_name) do
+  defp handle(%Plug.Conn{halted: true} = conn) do
     conn
   end
-  defp handle(conn, coil_header_name) do
-    case get_req_header(conn, coil_header_name) do
+  defp handle(conn) do
+    case get_req_header(conn, @coil_header_name) do
       [header_value] ->
         case Regex.run(~r/^([a-zA-Z]+).([a-zA-Z]+)$/, header_value, [capture: :all_but_first]) do
           [service_name, operation] ->
