@@ -8,9 +8,7 @@ defmodule Coil.Handler do
   def init(opts), do: opts
 
   def call(%Plug.Conn{request_path: "/"} = conn, opts) do
-    service_name = Keyword.fetch!(opts, :service_name)
     coil_header_name = Keyword.fetch!(opts, :coil_header_name)
-    dispatch_conf = Keyword.fetch!(opts, :dispatch_conf)
     middlewares = Keyword.get(opts, :middlewares, [])
     onresponse = Keyword.get(opts, :onresponse, [])
 
@@ -20,7 +18,7 @@ defmodule Coil.Handler do
                                pass: ["application/json"],
                                json_decoder: Poison)
     |> call_plugs(middlewares)
-    |> handle(service_name, coil_header_name, dispatch_conf)
+    |> handle(coil_header_name)
     |> call_plugs(onresponse)
     |> send_resp()
   end
@@ -42,15 +40,15 @@ defmodule Coil.Handler do
     Enum.reduce(plugs, conn, fn(plug, conn) -> call_plug(conn, plug) end)
   end
 
-  defp handle(%Plug.Conn{halted: true} = conn, _service_name, _coil_header_name, _dispatch_conf) do
+  defp handle(%Plug.Conn{halted: true} = conn, _coil_header_name) do
     conn
   end
-  defp handle(conn, service_name, coil_header_name, dispatch_conf) do
+  defp handle(conn, coil_header_name) do
     case get_req_header(conn, coil_header_name) do
       [header_value] ->
         case Regex.run(~r/^([a-zA-Z]+).([a-zA-Z]+)$/, header_value, [capture: :all_but_first]) do
-          [^service_name, operation] ->
-            case Map.get(dispatch_conf, operation) do
+          [service_name, operation] ->
+            case Coil.Dispatch.get(service_name, operation) do
               nil ->
                 conn
                 |> put_status(400)

@@ -9,10 +9,10 @@ defmodule Coil.JsonSchema do
     :ets.new(@table_name, [:set, :public, :named_table])
   end
 
-  def load_schemas(app_name, service_name, dispatch_conf) do
+  def load_schemas(app_name, service_name, dispatch_config) do
     service_name_underscore = Macro.underscore(service_name)
     dir = Application.app_dir(app_name, Path.join("priv/json_schema", service_name_underscore))
-    for {operation, _module} <- dispatch_conf do
+    for {operation, _module} <- dispatch_config do
       schema = Path.join(dir, "#{Macro.underscore(operation)}.json")
                |> File.read!()
                |> Poison.decode!()
