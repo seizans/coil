@@ -13,6 +13,7 @@ defmodule Coil.Handler do
     pass: ["application/json"],
     json_decoder: Poison
   plug :handle
+  # TODO(seizans): handle の前に middlewares と後ろに onresponse を plug に追加できるようにする
 
   defp handle(%Plug.Conn{request_path: "/"} = conn, _opts) do
     case get_req_header(conn, @coil_header_name) do
@@ -50,7 +51,7 @@ defmodule Coil.Handler do
                     |> resp(400, message)
                 end
             end
-          _ ->
+          nil ->
             conn
             |> put_status(400)
             |> json(%{error: "Invalid header value"})

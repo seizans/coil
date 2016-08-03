@@ -19,6 +19,6 @@ defmodule Coil do
     dispatch_config = Keyword.fetch!(coil_config, :dispatch_config)
     Coil.JsonSchema.load_schemas(app_name, service_name, dispatch_config)
     Coil.Dispatch.load_dispatch(service_name, dispatch_config)
-    Plug.Adapters.Cowboy.http(Coil.Handler, coil_config, cowboy_opts)
+    Plug.Adapters.Cowboy.http(Coil.Handler, [], cowboy_opts)
   end
 end
